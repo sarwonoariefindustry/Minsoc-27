@@ -1,5 +1,4 @@
 
-
 import * as pc from "playcanvas";
 
 const FIELD_W = 18;
@@ -55,13 +54,17 @@ export async function createScene(canvas) {
   const grassB = material([0.12, 0.39, 0.21]);
   const lineMat = material([0.88, 0.94, 0.88]);
   const darkMat = material([0.035, 0.075, 0.06]);
+
   const playerMat = material([0.82, 0.88, 0.92], {
     gloss: 0.5
   });
+
   const shortsMat = material([0.055, 0.10, 0.14]);
+
   const ballMat = material([0.96, 0.96, 0.91], {
     gloss: 0.65
   });
+
   const accentMat = material([0.72, 0.95, 0.23]);
 
   // FIELD
@@ -180,10 +183,12 @@ export async function createScene(canvas) {
   app.root.addChild(player);
 
   const torso = new pc.Entity("torso");
+
   torso.addComponent("render", {
     type: "capsule",
     material: playerMat
   });
+
   torso.setLocalScale(0.72, 1.0, 0.48);
   torso.setLocalPosition(0, 1.15, 0);
   player.addChild(torso);
@@ -195,22 +200,27 @@ export async function createScene(canvas) {
     0.25,
     material([0.72, 0.54, 0.39])
   );
+
   player.addChild(head);
 
   const shorts = new pc.Entity("shorts");
+
   shorts.addComponent("render", {
     type: "box",
     material: shortsMat
   });
+
   shorts.setLocalScale(0.72, 0.42, 0.48);
   shorts.setLocalPosition(0, 0.55, 0);
   player.addChild(shorts);
 
   const marker = new pc.Entity("player-marker");
+
   marker.addComponent("render", {
     type: "box",
     material: accentMat
   });
+
   marker.setLocalScale(0.18, 0.06, 0.65);
   marker.setLocalPosition(0, 0.18, -0.32);
   player.addChild(marker);
@@ -263,30 +273,50 @@ export async function createScene(canvas) {
   let moveZ = 0;
   let sprint = false;
 
-  let ballVelocity = new pc.Vec3(0, 0, 0);
+  const ballVelocity = new pc.Vec3(0, 0, 0);
+  let kickLock = 0;
   let score = 0;
 
   // UPDATE GAME
   function update(dt) {
-    const speed = sprint ? 7.0 : 4.4;
-    const length = Math.hypot(moveX, moveZ);
+    // Prevent a large frame-time jump.
+    const delta = Math.min(dt, 0.05);
 
-    // PLAYER MOVEMENT
-    if (length > 0.05) {
-      const nx = moveX / Math.max(1, length);
-      const nz = moveZ / Math.max(1, length);
+    kickLock = Math.max(0, kickLock - delta);
+
+    const inputLength = Math.hypot(moveX, moveZ);
+    const inputActive = inputLength > 0.05;
+    const inputScale = Math.min(1, inputLength);
+
+    const speed = (sprint ? 7.0 : 4.4) * inputScale;
+
+    // PLAYER MOVEMENT + FACING DIRECTION
+    let dirX = 0;
+    let dirZ = -1;
+
+    if (inputActive) {
+      dirX = moveX / inputLength;
+      dirZ = moveZ / inputLength;
 
       player.translate(
-        nx * speed * dt,
+        dirX * speed * delta,
         0,
-        nz * speed * dt
+        dirZ * speed * delta
       );
 
-      player.setEulerAngles(
-        0,
-        Math.atan2(nx, nz) * 180 / Math.PI,
-        0
+      // Character forward direction is -Z.
+      const targetYaw =
+        Math.atan2(-dirX, -dirZ) * 180 / Math.PI;
+
+      const currentYaw = player.getEulerAngles().y;
+
+      const smoothYaw = pc.math.lerpAngle(
+        currentYaw,
+        targetYaw,
+        Math.min(1, delta * 12)
       );
+
+      player.setEulerAngles(0, smoothYaw, 0);
     }
 
     const p = player.getPosition();
@@ -296,81 +326,103 @@ export async function createScene(canvas) {
 
     player.setPosition(p);
 
-    // BALL PHYSICS
+    // BALL STATE
     const bp = ball.getPosition();
 
-    bp.x += ballVelocity.x * dt;
-    bp.z += ballVelocity.z * dt;
+    const dx = bp.x - p.x;
+    const dz = bp.z - p.z;
 
-    const friction = Math.pow(0.985, dt * 60);
+    const distance = Math.hypot(dx, dz);
 
-    ballVelocity.x *= friction;
-    ballVelocity.z *= friction;
+    // Use movement direction or facing direction.
+    if (!inputActive) {
+      const yaw = player.getEulerAngles().y * Math.PI / 180;
 
-    if (Math.abs(ballVelocity.x) < 0.04) {
-      ballVelocity.x = 0;
+      dirX = -Math.sin(yaw);
+      dirZ = -Math.cos(yaw);
     }
 
-    if (Math.abs(ballVelocity.z) < 0.04) {
-      ballVelocity.z = 0;
+    // NATURAL DRIBBLING
+    const canDribble =
+      inputActive &&
+      kickLock <= 0 &&
+      distance < 1.55;
+
+    if (canDribble) {
+      const sprintFactor = sprint ? 1 : 0;
+
+      const dribbleDistance =
+        0.72 + sprintFactor * 0.28 + inputScale * 0.08;
+
+      const targetX = p.x + dirX * dribbleDistance;
+      const targetZ = p.z + dirZ * dribbleDistance;
+
+      const errorX = targetX - bp.x;
+      const errorZ = targetZ - bp.z;
+
+      const springStrength = 25;
+      const damping = 8.5;
+
+      ballVelocity.x += (
+        errorX * springStrength -
+        ballVelocity.x * damping
+      ) * delta;
+
+      ballVelocity.z += (
+        errorZ * springStrength -
+        ballVelocity.z * damping
+      ) * delta;
+
+    } else {
+      // FREE BALL PHYSICS
+      const friction = Math.pow(0.985, delta * 60);
+
+      ballVelocity.x *= friction;
+      ballVelocity.z *= friction;
+
+      if (Math.abs(ballVelocity.x) < 0.035) {
+        ballVelocity.x = 0;
+      }
+
+      if (Math.abs(ballVelocity.z) < 0.035) {
+        ballVelocity.z = 0;
+      }
     }
+
+    // BALL MOVEMENT
+    bp.x += ballVelocity.x * delta;
+    bp.z += ballVelocity.z * delta;
 
     // BALL BOUNDARIES
-    if (Math.abs(bp.x) > 8.4) {
-      ballVelocity.x *= -0.55;
+    if (bp.x < -8.4 || bp.x > 8.4) {
+      bp.x = pc.math.clamp(bp.x, -8.4, 8.4);
+      ballVelocity.x *= -0.45;
     }
 
     if (bp.z > 13.1) {
-      ballVelocity.z *= -0.55;
+      bp.z = 13.1;
+      ballVelocity.z *= -0.45;
     }
 
+    // Keep the goal mouth open.
     if (bp.z < -13.25 && Math.abs(bp.x) > 2.55) {
-      ballVelocity.z *= -0.55;
+      bp.z = -13.25;
+      ballVelocity.z *= -0.45;
     }
 
-    bp.x = pc.math.clamp(bp.x, -8.4, 8.4);
-    bp.z = pc.math.clamp(bp.z, -13.5, 13.5);
+    bp.z = pc.math.clamp(bp.z, -13.5, 13.1);
 
     ball.setPosition(bp);
 
-    ball.rotate(
-      0,
-      (ballVelocity.x + ballVelocity.z) * 100 * dt,
-      0
+    // BALL ROLL + SHADOW
+    const rollingSpeed = Math.hypot(
+      ballVelocity.x,
+      ballVelocity.z
     );
 
+    ball.rotate(0, rollingSpeed * 65 * delta, 0);
+
     shadow.setPosition(bp.x, 0.025, bp.z);
-
-    // AUTOMATIC DRIBBLING
-    const dx = bp.x - p.x;
-    const dz = bp.z - p.z;
-    const distance = Math.hypot(dx, dz);
-
-    if (length > 0.05 && distance < 1.35) {
-      const moveLength = Math.max(1, length);
-
-      const dirX = moveX / moveLength;
-      const dirZ = moveZ / moveLength;
-
-      const dribbleDistance = 0.88;
-
-      const targetBallX =
-        p.x + dirX * dribbleDistance;
-
-      const targetBallZ =
-        p.z + dirZ * dribbleDistance;
-
-      const follow = Math.min(1, dt * 10);
-
-      bp.x += (targetBallX - bp.x) * follow;
-      bp.z += (targetBallZ - bp.z) * follow;
-
-      ballVelocity.x = dirX * speed * 0.78;
-      ballVelocity.z = dirZ * speed * 0.78;
-
-      ball.setPosition(bp);
-      shadow.setPosition(bp.x, 0.025, bp.z);
-    }
 
     // THIRD-PERSON CAMERA
     const target = new pc.Vec3(
@@ -384,10 +436,11 @@ export async function createScene(canvas) {
     currentCameraPosition.lerp(
       currentCameraPosition,
       target,
-      Math.min(1, dt * 4)
+      Math.min(1, delta * 4)
     );
 
     camera.setPosition(currentCameraPosition);
+
     camera.lookAt(p.x, 0.8, p.z - 2.5);
   }
 
@@ -398,22 +451,24 @@ export async function createScene(canvas) {
 
     const dx = bp.x - p.x;
     const dz = bp.z - p.z;
+
     const distance = Math.hypot(dx, dz);
 
-    if (distance > 2.2) {
+    if (distance > 2.0) {
       return false;
     }
 
-    let dirX = dx / Math.max(0.2, distance);
-    let dirZ = dz / Math.max(0.2, distance);
+    // Kick toward the direction the player faces.
+    const yaw = player.getEulerAngles().y * Math.PI / 180;
 
-    if (bp.z > p.z - 0.5) {
-      dirX = 0;
-      dirZ = -1;
-    }
+    const dirX = -Math.sin(yaw);
+    const dirZ = -Math.cos(yaw);
 
-    ballVelocity.x = dirX * 11;
-    ballVelocity.z = dirZ * 15;
+    // Temporarily release the ball.
+    ballVelocity.x = dirX * 14;
+    ballVelocity.z = dirZ * 14;
+
+    kickLock = 0.55;
 
     return true;
   }
@@ -422,6 +477,7 @@ export async function createScene(canvas) {
   function resetBall() {
     ball.setPosition(0, 0.28, 3);
     ballVelocity.set(0, 0, 0);
+    kickLock = 0;
   }
 
   return {
