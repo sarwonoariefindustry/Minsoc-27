@@ -3,6 +3,7 @@ import * as pc from "playcanvas";
 
 const FIELD_W = 18;
 const FIELD_L = 28;
+const MATCH_DURATION = 120;
 
 function material(color, options = {}) {
   const m = new pc.StandardMaterial();
@@ -15,10 +16,7 @@ function material(color, options = {}) {
 
 function box(app, name, position, scale, mat) {
   const e = new pc.Entity(name);
-  e.addComponent("render", {
-    type: "box",
-    material: mat
-  });
+  e.addComponent("render", { type: "box", material: mat });
   e.setLocalPosition(...position);
   e.setLocalScale(...scale);
   app.root.addChild(e);
@@ -27,10 +25,7 @@ function box(app, name, position, scale, mat) {
 
 function sphere(app, name, position, radius, mat) {
   const e = new pc.Entity(name);
-  e.addComponent("render", {
-    type: "sphere",
-    material: mat
-  });
+  e.addComponent("render", { type: "sphere", material: mat });
   e.setLocalPosition(...position);
   e.setLocalScale(radius * 2, radius * 2, radius * 2);
   app.root.addChild(e);
@@ -46,7 +41,6 @@ export async function createScene(canvas) {
 
   app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
   app.setCanvasResolution(pc.RESOLUTION_AUTO);
-
   app.scene.ambientLight = new pc.Color(0.48, 0.55, 0.48);
   app.start();
 
@@ -249,10 +243,15 @@ export async function createScene(canvas) {
   let moveX = 0;
   let moveZ = 0;
   let sprint = false;
-  let score = 0;
+
+  let homeScore = 0;
+  let awayScore = 0;
+  let timeRemaining = MATCH_DURATION;
+  let matchState = "playing";
+  let goalPauseTimer = 0;
+  let goalMessage = "";
 
   let playerYaw = 0;
-
   let cameraYaw = 0;
   let cameraPitch = 18;
 
@@ -281,6 +280,15 @@ export async function createScene(canvas) {
 
   // PLAYER MOVEMENT
   function updatePlayer(delta) {
+    if (matchState !== "playing") {
+      return {
+        inputActive: false,
+        inputScale: 0,
+        directionX: lastDirX,
+        directionZ: lastDirZ
+      };
+    }
+
     const inputLength = Math.hypot(moveX, moveZ);
     const inputActive = inputLength > 0.06;
     const inputScale = Math.min(1, inputLength);
@@ -349,6 +357,59 @@ export async function createScene(canvas) {
       inputScale,
       directionX,
       directionZ
+    };
+  }
+
+  // MATCH FLOW
+  function registerGoal() {
+    if (matchState !== "playing") return;
+
+    homeScore += 1;
+    matchState = "goal";
+    goalPauseTimer = 2.4;
+    goalMessage = "GOAL!";
+
+    moveX = 0;
+    moveZ = 0;
+    sprint = false;
+    ballVelocity.set(0, 0, 0);
+  }
+
+  function resetForKickoff() {
+    player.setPosition(0, 0, 7);
+    playerYaw = 0;
+    player.setEulerAngles(0, 0, 0);
+
+    ball.setPosition(0, 0.28, 3);
+    shadow.setPosition(0, 0.025, 3);
+    ballVelocity.set(0, 0, 0);
+
+    moveX = 0;
+    moveZ = 0;
+    sprint = false;
+    kickLock = 0;
+    dribbleTouchTimer = 0;
+    lastDirX = 0;
+    lastDirZ = -1;
+  }
+
+  function restartMatch() {
+    homeScore = 0;
+    awayScore = 0;
+    timeRemaining = MATCH_DURATION;
+    matchState = "playing";
+    goalPauseTimer = 0;
+    goalMessage = "";
+    resetForKickoff();
+  }
+
+  function getMatchInfo() {
+    return {
+      homeScore,
+      awayScore,
+      timeRemaining,
+      state: matchState,
+      goalMessage
     };
   }
 
@@ -428,8 +489,29 @@ export async function createScene(canvas) {
     }
 
     // BALL MOVEMENT
+    const previousZ = bp.z;
     bp.x += ballVelocity.x * delta;
     bp.z += ballVelocity.z * delta;
+
+    // GOAL DETECTION
+    const crossedGoalLine =
+      previousZ > -13.72 &&
+      bp.z <= -13.72 &&
+      ballVelocity.z < 0;
+
+    if (
+      crossedGoalLine &&
+      Math.abs(bp.x) < 2.25 &&
+      bp.y < 1.32
+    ) {
+      registerGoal();
+
+      bp.z = -13.72;
+      ballVelocity.set(0, 0, 0);
+      ball.setPosition(bp);
+      shadow.setPosition(bp.x, 0.025, bp.z);
+      return;
+    }
 
     // BALL BOUNDARIES
     if (bp.x < -8.4 || bp.x > 8.4) {
@@ -442,12 +524,12 @@ export async function createScene(canvas) {
       ballVelocity.z *= -0.45;
     }
 
-    if (bp.z < -13.25 && Math.abs(bp.x) > 2.55) {
+    if (bp.z < -13.25 && Math.abs(bp.x) > 2.25) {
       bp.z = -13.25;
       ballVelocity.z *= -0.45;
     }
 
-    bp.z = pc.math.clamp(bp.z, -13.5, 13.1);
+    bp.z = pc.math.clamp(bp.z, -14.25, 13.1);
 
     ball.setPosition(bp);
 
@@ -502,7 +584,6 @@ export async function createScene(canvas) {
     );
 
     camera.setPosition(currentPosition);
-
     camera.lookAt(p.x, 1.15, p.z);
   }
 
@@ -510,15 +591,36 @@ export async function createScene(canvas) {
   function update(dt) {
     const delta = Math.min(dt, 0.05);
 
-    const movement = updatePlayer(delta);
+    if (matchState === "playing") {
+      timeRemaining = Math.max(0, timeRemaining - delta);
 
-    updateBall(delta, movement);
+      if (timeRemaining <= 0) {
+        matchState = "finished";
+        moveX = 0;
+        moveZ = 0;
+        sprint = false;
+        goalMessage = "FULL TIME";
+      } else {
+        const movement = updatePlayer(delta);
+        updateBall(delta, movement);
+      }
+    } else if (matchState === "goal") {
+      goalPauseTimer -= delta;
+
+      if (goalPauseTimer <= 0) {
+        matchState = "playing";
+        goalMessage = "";
+        resetForKickoff();
+      }
+    }
 
     updateCamera(delta);
   }
 
   // PASSING & SHOOTING
   function performKick(power, lockDuration = 0.48) {
+    if (matchState !== "playing") return false;
+
     const p = player.getPosition();
     const bp = ball.getPosition();
 
@@ -555,7 +657,6 @@ export async function createScene(canvas) {
     return performKick(18.5, 0.68);
   }
 
-  // Backward compatibility
   function kick() {
     return shoot();
   }
@@ -563,6 +664,7 @@ export async function createScene(canvas) {
   // RESET BALL
   function resetBall() {
     ball.setPosition(0, 0.28, 3);
+    shadow.setPosition(0, 0.025, 3);
     ballVelocity.set(0, 0, 0);
 
     kickLock = 0;
@@ -573,21 +675,30 @@ export async function createScene(canvas) {
   return {
     app,
 
+    getMatchInfo,
+    restartMatch,
+
     get score() {
-      return score;
+      return homeScore;
     },
 
     set score(value) {
-      score = value;
+      homeScore = value;
     },
 
     setMovement(x, z) {
+      if (matchState !== "playing") {
+        moveX = 0;
+        moveZ = 0;
+        return;
+      }
+
       moveX = x;
       moveZ = z;
     },
 
     setSprint(value) {
-      sprint = value;
+      sprint = matchState === "playing" && value;
     },
 
     setCameraInput,
