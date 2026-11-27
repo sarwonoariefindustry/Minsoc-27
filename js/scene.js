@@ -408,6 +408,7 @@ export async function createScene(canvas) {
   const ballVelocity = new pc.Vec3(0, 0, 0);
 
   let kickLock = 0;
+  let dribbleTouchTimer = 0;
 
   // ==================================
   // CAMERA INPUT
@@ -514,6 +515,7 @@ export async function createScene(canvas) {
 
   function updateBall(delta, movement) {
     kickLock = Math.max(0, kickLock - delta);
+    dribbleTouchTimer = Math.max(0, dribbleTouchTimer - delta);
 
     const p = player.getPosition();
     const bp = ball.getPosition();
@@ -531,62 +533,78 @@ export async function createScene(canvas) {
       ? movement.directionZ
       : lastDirZ;
 
+    // Measure ball position relative to the player's direction.
+    const forwardDistance =
+      dx * directionX + dz * directionZ;
+
+    const rightX = -directionZ;
+    const rightZ = directionX;
+
+    const sideDistance =
+      dx * rightX + dz * rightZ;
+
+    // Natural rolling friction.
+    const friction = Math.pow(0.992, delta * 60);
+
+    ballVelocity.x *= friction;
+    ballVelocity.z *= friction;
+
+    // ==================================
+    // TOUCH-BASED DRIBBLING
+    // ==================================
+
     const canDribble =
       movement.inputActive &&
       kickLock <= 0 &&
-      distance < 1.55;
+      distance < 2.15;
 
-    if (canDribble) {
+    if (canDribble && dribbleTouchTimer <= 0) {
       const sprintFactor = sprint ? 1 : 0;
 
-      const dribbleDistance =
-        0.72 +
-        sprintFactor * 0.28 +
-        movement.inputScale * 0.08;
+      let touchPower;
 
-      const targetX =
-        p.x + directionX * dribbleDistance;
-
-      const targetZ =
-        p.z + directionZ * dribbleDistance;
-
-      const errorX = targetX - bp.x;
-      const errorZ = targetZ - bp.z;
-
-      const springStrength = 25;
-      const damping = 8.5;
-
-      ballVelocity.x += (
-        errorX * springStrength -
-        ballVelocity.x * damping
-      ) * delta;
-
-      ballVelocity.z += (
-        errorZ * springStrength -
-        ballVelocity.z * damping
-      ) * delta;
-
-    } else {
-      // Preserve free-ball momentum.
-      const friction = Math.pow(0.985, delta * 60);
-
-      ballVelocity.x *= friction;
-      ballVelocity.z *= friction;
-
-      if (Math.abs(ballVelocity.x) < 0.035) {
-        ballVelocity.x = 0;
+      // Stronger recovery touch when the ball falls behind.
+      if (forwardDistance < 0) {
+        touchPower = 3.8;
+      } else if (forwardDistance < 0.5) {
+        touchPower = 2.7;
+      } else if (forwardDistance < 1.1) {
+        touchPower = 1.6;
+      } else {
+        touchPower = 0.45;
       }
 
-      if (Math.abs(ballVelocity.z) < 0.035) {
-        ballVelocity.z = 0;
-      }
+      touchPower += sprintFactor * 0.55;
+
+      // Push the ball forward in separate touches.
+      ballVelocity.x += directionX * touchPower;
+      ballVelocity.z += directionZ * touchPower;
+
+      // Gently correct excessive sideways drift.
+      const sideCorrection = pc.math.clamp(
+        -sideDistance * 1.4,
+        -1.2,
+        1.2
+      );
+
+      ballVelocity.x += rightX * sideCorrection;
+      ballVelocity.z += rightZ * sideCorrection;
+
+      // Touches happen at intervals, not continuously.
+      dribbleTouchTimer = sprint ? 0.17 : 0.22;
     }
 
-    // Integrate ball movement.
+    // ==================================
+    // BALL MOVEMENT
+    // ==================================
+
     bp.x += ballVelocity.x * delta;
     bp.z += ballVelocity.z * delta;
 
-    // Ball boundaries.
+    // ==================================
+    // BALL BOUNDARIES
+    // ==================================
+
     if (bp.x < -8.4 || bp.x > 8.4) {
       bp.x = pc.math.clamp(bp.x, -8.4, 8.4);
       ballVelocity.x *= -0.45;
@@ -732,6 +750,7 @@ export async function createScene(canvas) {
     ballVelocity.set(0, 0, 0);
 
     kickLock = 0;
+    dribbleTouchTimer = 0;
   }
 
   // ==================================
