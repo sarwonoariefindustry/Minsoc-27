@@ -125,8 +125,6 @@ export async function createScene(canvas) {
     );
   }
 
-  // FIELD LINES
-
   box(
     app,
     "touchline-left",
@@ -324,6 +322,8 @@ export async function createScene(canvas) {
 
   player.addChild(shorts);
 
+  // Direction marker on the ground.
+
   const marker = new pc.Entity("player-marker");
 
   marker.addComponent("render", {
@@ -336,7 +336,20 @@ export async function createScene(canvas) {
 
   player.addChild(marker);
 
-  // Initial player position
+  // Small front indicator on the chest.
+
+  const frontIndicator = new pc.Entity("front-indicator");
+
+  frontIndicator.addComponent("render", {
+    type: "box",
+    material: accentMat
+  });
+
+  frontIndicator.setLocalScale(0.34, 0.12, 0.035);
+  frontIndicator.setLocalPosition(0, 1.3, -0.255);
+
+  player.addChild(frontIndicator);
+
   player.setPosition(0, 0, 7);
 
   // ========================================
@@ -375,7 +388,7 @@ export async function createScene(canvas) {
   app.root.addChild(ambient);
 
   // ========================================
-  // CAMERA
+  // THIRD-PERSON CAMERA
   // ========================================
 
   const camera = new pc.Entity("camera");
@@ -389,13 +402,23 @@ export async function createScene(canvas) {
 
   app.root.addChild(camera);
 
-  // Camera focus follows the player with a delay.
-  // This lets the player visibly move on the screen.
+  // Camera settings.
 
-  const cameraFocus = new pc.Vec3(0, 0, 7);
+  const CAMERA_DISTANCE = 8.5;
+  const CAMERA_HEIGHT = 5.4;
+  const CAMERA_LOOK_AHEAD = 2.5;
 
-  camera.setPosition(0, 7.0, 15.5);
-  camera.lookAt(0, 0.8, 4.5);
+  // Camera yaw follows player yaw smoothly.
+
+  let cameraYaw = 0;
+
+  camera.setPosition(
+    0,
+    CAMERA_HEIGHT,
+    15.5
+  );
+
+  camera.lookAt(0, 1, 4.5);
 
   // ========================================
   // GAME VARIABLES
@@ -407,11 +430,21 @@ export async function createScene(canvas) {
 
   let score = 0;
 
-  // Player's last facing direction.
+  let playerYaw = 0;
+
+  // Input reference is captured when a new
+  // joystick movement begins. This prevents
+  // camera rotation from changing movement
+  // direction while the player is turning.
+
+  let inputReferenceYaw = 0;
+  let wasInputActive = false;
+
   let lastDirX = 0;
   let lastDirZ = -1;
 
   // Ball physics.
+
   const ballVelocity = new pc.Vec3(0, 0, 0);
 
   let kickLock = 0;
@@ -419,7 +452,7 @@ export async function createScene(canvas) {
   let alternateFoot = 1;
 
   // ========================================
-  // PLAYER + BALL UPDATE
+  // GAME UPDATE
   // ========================================
 
   function update(dt) {
@@ -429,22 +462,58 @@ export async function createScene(canvas) {
     touchCooldown = Math.max(0, touchCooldown - delta);
 
     // --------------------------------------
-    // INPUT
+    // INPUT STATE
     // --------------------------------------
 
     const inputLength = Math.hypot(moveX, moveZ);
-
     const inputActive = inputLength > 0.05;
 
     const inputScale = Math.min(1, inputLength);
 
-    const directionX = inputActive
-      ? moveX / inputLength
-      : lastDirX;
+    // Capture camera direction when movement starts.
 
-    const directionZ = inputActive
-      ? moveZ / inputLength
-      : lastDirZ;
+    if (inputActive && !wasInputActive) {
+      inputReferenceYaw = cameraYaw;
+    }
+
+    wasInputActive = inputActive;
+
+    let directionX = lastDirX;
+    let directionZ = lastDirZ;
+
+    if (inputActive) {
+      const referenceRad =
+        inputReferenceYaw * Math.PI / 180;
+
+      // Camera-relative forward direction.
+
+      const forwardX = -Math.sin(referenceRad);
+      const forwardZ = -Math.cos(referenceRad);
+
+      // Camera-relative right direction.
+
+      const rightX = Math.cos(referenceRad);
+      const rightZ = -Math.sin(referenceRad);
+
+      // Screen joystick:
+      // Up = negative Z
+      // Down = positive Z
+
+      const rawX =
+        rightX * moveX +
+        forwardX * (-moveZ);
+
+      const rawZ =
+        rightZ * moveX +
+        forwardZ * (-moveZ);
+
+      const rawLength = Math.hypot(rawX, rawZ);
+
+      if (rawLength > 0.001) {
+        directionX = rawX / rawLength;
+        directionZ = rawZ / rawLength;
+      }
+    }
 
     // --------------------------------------
     // PLAYER MOVEMENT
@@ -453,15 +522,16 @@ export async function createScene(canvas) {
     const normalSpeed = 4.4;
     const sprintSpeed = 7.0;
 
-    const baseSpeed = sprint ? sprintSpeed : normalSpeed;
+    const baseSpeed = sprint
+      ? sprintSpeed
+      : normalSpeed;
 
     const playerSpeed = baseSpeed * inputScale;
 
     const p = player.getPosition();
 
     if (inputActive) {
-      // Move directly in world coordinates.
-      // This avoids movement changing because of player rotation.
+      // Move in world coordinates.
 
       p.x += directionX * playerSpeed * delta;
       p.z += directionZ * playerSpeed * delta;
@@ -469,21 +539,23 @@ export async function createScene(canvas) {
       lastDirX = directionX;
       lastDirZ = directionZ;
 
-      // Rotate the player toward the movement direction.
+      // Turn the player toward movement direction.
 
       const targetYaw =
         Math.atan2(-directionX, -directionZ) *
         180 / Math.PI;
 
-      const currentYaw = player.getEulerAngles().y;
-
-      const smoothYaw = pc.math.lerpAngle(
-        currentYaw,
+      playerYaw = pc.math.lerpAngle(
+        playerYaw,
         targetYaw,
         Math.min(1, delta * 12)
       );
 
-      player.setEulerAngles(0, smoothYaw, 0);
+      player.setEulerAngles(
+        0,
+        playerYaw,
+        0
+      );
     }
 
     // Keep player inside the field.
@@ -493,22 +565,19 @@ export async function createScene(canvas) {
 
     player.setPosition(p);
 
-    // --------------------------------------
-    // DRIBBLING: TOUCH-BASED SYSTEM
-    // --------------------------------------
+    // ======================================
+    // DRIBBLING PHYSICS
+    // ======================================
 
     const bp = ball.getPosition();
 
     const relativeX = bp.x - p.x;
     const relativeZ = bp.z - p.z;
 
-    // Distance from player to ball.
     const distance = Math.hypot(
       relativeX,
       relativeZ
     );
-
-    // Calculate ball position relative to player's direction.
 
     const forwardDistance =
       relativeX * directionX +
@@ -520,9 +589,6 @@ export async function createScene(canvas) {
     const sideDistance =
       relativeX * rightX +
       relativeZ * rightZ;
-
-    // The ball must be in front of the player,
-    // close enough for a foot touch.
 
     const ballInFront =
       forwardDistance > 0.15 &&
@@ -540,18 +606,11 @@ export async function createScene(canvas) {
       ballNearFeet;
 
     if (canTouchBall) {
-      // Project current ball velocity onto forward direction.
-
       const ballForwardSpeed =
         ballVelocity.x * directionX +
         ballVelocity.z * directionZ;
 
-      // Keep the ball slightly ahead of the player.
-
       const desiredBallSpeed = sprint ? 7.8 : 5.2;
-
-      // Apply a short impulse instead of pulling the ball.
-      // This creates separate touches rather than magnetic movement.
 
       const speedDifference =
         desiredBallSpeed - ballForwardSpeed;
@@ -565,17 +624,12 @@ export async function createScene(canvas) {
       ballVelocity.x += directionX * pushStrength;
       ballVelocity.z += directionZ * pushStrength;
 
-      // Small alternating side variation
-      // to avoid every touch following one exact line.
-
       const sidePush = 0.08 * alternateFoot;
 
       ballVelocity.x += rightX * sidePush;
       ballVelocity.z += rightZ * sidePush;
 
       alternateFoot *= -1;
-
-      // Touch frequency.
 
       touchCooldown = sprint ? 0.20 : 0.24;
     }
@@ -584,9 +638,10 @@ export async function createScene(canvas) {
     // BALL FRICTION
     // --------------------------------------
 
-    // The ball keeps momentum when it is not touched.
-
-    const friction = Math.pow(0.994, delta * 60);
+    const friction = Math.pow(
+      0.994,
+      delta * 60
+    );
 
     ballVelocity.x *= friction;
     ballVelocity.z *= friction;
@@ -599,7 +654,7 @@ export async function createScene(canvas) {
       ballVelocity.z = 0;
     }
 
-    // Limit maximum ball speed.
+    // Maximum ball speed.
 
     const ballSpeed = Math.hypot(
       ballVelocity.x,
@@ -636,8 +691,6 @@ export async function createScene(canvas) {
       ballVelocity.z *= -0.45;
     }
 
-    // Leave the goal mouth open.
-
     if (
       bp.z < -13.25 &&
       Math.abs(bp.x) > 2.55
@@ -654,9 +707,7 @@ export async function createScene(canvas) {
 
     ball.setPosition(bp);
 
-    // --------------------------------------
-    // BALL ROTATION + SHADOW
-    // --------------------------------------
+    // Ball rotation and shadow.
 
     const rollingSpeed = Math.hypot(
       ballVelocity.x,
@@ -676,34 +727,56 @@ export async function createScene(canvas) {
     );
 
     // ======================================
-    // CAMERA FOLLOW
+    // CAMERA FOLLOW + ROTATION
     // ======================================
 
-    // Camera follows more slowly than the player.
-    // Therefore, the player can move visibly
-    // toward the top, bottom, left or right of the screen.
+    // Camera smoothly follows the player's yaw.
 
-    const followSpeed = 2.8;
-
-    const followBlend =
-      1 - Math.exp(-followSpeed * delta);
-
-    cameraFocus.lerp(
-      cameraFocus,
-      p,
-      followBlend
+    cameraYaw = pc.math.lerpAngle(
+      cameraYaw,
+      playerYaw,
+      Math.min(1, delta * 3.0)
     );
 
-    camera.setPosition(
-      cameraFocus.x,
-      7.0,
-      cameraFocus.z + 8.5
+    const cameraRad = cameraYaw * Math.PI / 180;
+
+    // Player forward direction.
+
+    const forwardX = -Math.sin(cameraRad);
+    const forwardZ = -Math.cos(cameraRad);
+
+    // Position camera behind player.
+
+    const desiredCameraX =
+      p.x + Math.sin(cameraRad) * CAMERA_DISTANCE;
+
+    const desiredCameraZ =
+      p.z + Math.cos(cameraRad) * CAMERA_DISTANCE;
+
+    const desiredCameraPosition = new pc.Vec3(
+      desiredCameraX,
+      CAMERA_HEIGHT,
+      desiredCameraZ
     );
+
+    // Smooth camera position.
+
+    const currentCameraPosition = camera.getPosition();
+
+    currentCameraPosition.lerp(
+      currentCameraPosition,
+      desiredCameraPosition,
+      1 - Math.exp(-4.0 * delta)
+    );
+
+    camera.setPosition(currentCameraPosition);
+
+    // Camera looks slightly ahead of player.
 
     camera.lookAt(
-      cameraFocus.x,
-      0.8,
-      cameraFocus.z - 2.5
+      p.x + forwardX * CAMERA_LOOK_AHEAD,
+      1.0,
+      p.z + forwardZ * CAMERA_LOOK_AHEAD
     );
   }
 
@@ -724,21 +797,15 @@ export async function createScene(canvas) {
       return false;
     }
 
-    // Kick toward the direction the player faces.
+    // Kick in the direction player is facing.
 
-    const yaw =
-      player.getEulerAngles().y *
-      Math.PI / 180;
+    const yaw = playerYaw * Math.PI / 180;
 
     const dirX = -Math.sin(yaw);
     const dirZ = -Math.cos(yaw);
 
-    // Apply kick velocity.
-
     ballVelocity.x = dirX * 14;
     ballVelocity.z = dirZ * 14;
-
-    // Prevent immediate dribbling after the kick.
 
     kickLock = 0.65;
     touchCooldown = 0.35;
@@ -759,11 +826,15 @@ export async function createScene(canvas) {
     touchCooldown = 0;
     alternateFoot = 1;
 
-    shadow.setPosition(0, 0.025, 3);
+    shadow.setPosition(
+      0,
+      0.025,
+      3
+    );
   }
 
   // ========================================
-  // RETURN GAME API
+  // GAME API
   // ========================================
 
   return {
