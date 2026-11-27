@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07130f">
-  <title>Mini Soccer — Prototype 0.8</title>
+  <title>Mini Soccer — Prototype 0.9</title>
   <link rel="stylesheet" href="./css/style.css">
 
   <script type="importmap">
@@ -23,20 +23,24 @@
     <header class="topbar">
       <div class="brand">
         <span class="brand-mark">M</span>
-        <span>MINI SOCCER <small>PROTOTYPE 0.8</small></span>
+        <span>MINI SOCCER <small>PROTOTYPE 0.9</small></span>
       </div>
 
       <div class="status">
-        <span class="live-dot"></span> TRAINING ARENA
+        <span class="live-dot"></span> MATCH MODE
       </div>
     </header>
 
     <section class="hud">
-      <div class="score">
-        <span>HOME</span>
-        <strong id="score">0 — 0</strong>
-        <span>AWAY</span>
+      <div class="scoreboard">
+        <div class="team-label home-label">HOME</div>
+        <strong id="home-score">0</strong>
+        <span class="score-divider">—</span>
+        <strong id="away-score">0</strong>
+        <div class="team-label away-label">AWAY</div>
       </div>
+
+      <div class="match-clock" id="match-clock">02:00</div>
 
       <div class="hint" id="hint">
         Joystick kiri: bergerak | Geser kanan: kamera
@@ -52,14 +56,24 @@
       </div>
 
       <div class="action-zone">
-        <button id="sprint" class="action secondary">SPRINT</button>
-        <button id="pass" class="action">PASS</button>
-        <button id="through" class="action">THROUGH</button>
-        <button id="shoot" class="action primary">SHOOT</button>
+        <button id="through" class="action through">THROUGH</button>
+        <button id="shoot" class="action shoot">SHOOT</button>
+        <button id="pass" class="action pass">PASS</button>
+        <button id="sprint" class="action sprint">SPRINT</button>
       </div>
     </div>
 
-    <button id="reset" class="reset">RESET BALL</button>
+    <div id="match-overlay" class="match-overlay hidden">
+      <div class="match-panel">
+        <div id="match-message" class="match-message">GOAL!</div>
+        <div id="match-submessage" class="match-submessage">
+          Kick-off sebentar lagi
+        </div>
+        <button id="restart-match" class="restart-match hidden">
+          RESTART MATCH
+        </button>
+      </div>
+    </div>
 
     <div id="loading" class="loading">
       Memuat arena 3D…
