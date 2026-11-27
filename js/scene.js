@@ -4,36 +4,63 @@ import * as pc from "playcanvas";
 const FIELD_W = 18;
 const FIELD_L = 28;
 
-function createMaterial(color, gloss = 0.3) {
+// ==========================================
+// HELPER FUNCTIONS
+// ==========================================
+
+function material(color, options = {}) {
   const m = new pc.StandardMaterial();
-  m.diffuse = new pc.Color(...color);
-  m.gloss = gloss;
+
+  m.diffuse = new pc.Color(
+    color[0],
+    color[1],
+    color[2]
+  );
+
+  m.metalness = options.metalness ?? 0;
+  m.gloss = options.gloss ?? 0.25;
+
   m.update();
   return m;
 }
 
-function createBox(app, name, position, scale, mat) {
+function box(app, name, position, scale, mat) {
   const e = new pc.Entity(name);
+
   e.addComponent("render", {
     type: "box",
     material: mat
   });
+
   e.setLocalPosition(...position);
   e.setLocalScale(...scale);
+
   app.root.addChild(e);
   return e;
 }
 
-function createSphere(app, name, radius, mat) {
+function sphere(app, name, position, radius, mat) {
   const e = new pc.Entity(name);
+
   e.addComponent("render", {
     type: "sphere",
     material: mat
   });
-  e.setLocalScale(radius * 2, radius * 2, radius * 2);
+
+  e.setLocalPosition(...position);
+  e.setLocalScale(
+    radius * 2,
+    radius * 2,
+    radius * 2
+  );
+
   app.root.addChild(e);
   return e;
 }
+
+// ==========================================
+// CREATE SCENE
+// ==========================================
 
 export async function createScene(canvas) {
   const app = new pc.Application(canvas, {
@@ -44,22 +71,43 @@ export async function createScene(canvas) {
 
   app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
   app.setCanvasResolution(pc.RESOLUTION_AUTO);
-  app.scene.ambientLight = new pc.Color(0.48, 0.55, 0.48);
+
+  app.scene.ambientLight = new pc.Color(
+    0.48,
+    0.55,
+    0.48
+  );
+
   app.start();
 
+  // ========================================
   // MATERIALS
-  const grassA = createMaterial([0.10, 0.34, 0.19]);
-  const grassB = createMaterial([0.12, 0.39, 0.21]);
-  const lineMat = createMaterial([0.88, 0.94, 0.88]);
-  const darkMat = createMaterial([0.035, 0.075, 0.06]);
-  const playerMat = createMaterial([0.82, 0.88, 0.92], 0.5);
-  const shortsMat = createMaterial([0.055, 0.10, 0.14]);
-  const skinMat = createMaterial([0.72, 0.54, 0.39]);
-  const ballMat = createMaterial([0.96, 0.96, 0.91], 0.65);
-  const accentMat = createMaterial([0.72, 0.95, 0.23]);
+  // ========================================
 
+  const grassA = material([0.10, 0.34, 0.19]);
+  const grassB = material([0.12, 0.39, 0.21]);
+  const lineMat = material([0.88, 0.94, 0.88]);
+  const darkMat = material([0.035, 0.075, 0.06]);
+
+  const playerMat = material(
+    [0.82, 0.88, 0.92],
+    { gloss: 0.5 }
+  );
+
+  const shortsMat = material([0.055, 0.10, 0.14]);
+
+  const ballMat = material(
+    [0.96, 0.96, 0.91],
+    { gloss: 0.65 }
+  );
+
+  const accentMat = material([0.72, 0.95, 0.23]);
+
+  // ========================================
   // FIELD
-  createBox(
+  // ========================================
+
+  box(
     app,
     "field-base",
     [0, -0.22, 0],
@@ -68,7 +116,7 @@ export async function createScene(canvas) {
   );
 
   for (let i = 0; i < 7; i++) {
-    createBox(
+    box(
       app,
       `grass-stripe-${i}`,
       [0, -0.008, -12 + i * 4],
@@ -78,30 +126,54 @@ export async function createScene(canvas) {
   }
 
   // FIELD LINES
-  createBox(app, "touchline-left",
-    [-8.88, 0.015, 0],
-    [0.12, 0.025, FIELD_L - 0.2], lineMat);
 
-  createBox(app, "touchline-right",
-    [8.88, 0.015, 0],
-    [0.12, 0.025, FIELD_L - 0.2], lineMat);
+  box(
+    app,
+    "touchline-left",
+    [-FIELD_W / 2 + 0.12, 0.015, 0],
+    [0.12, 0.025, FIELD_L - 0.2],
+    lineMat
+  );
 
-  createBox(app, "goal-line-far",
-    [0, 0.015, -13.88],
-    [FIELD_W - 0.2, 0.025, 0.12], lineMat);
+  box(
+    app,
+    "touchline-right",
+    [FIELD_W / 2 - 0.12, 0.015, 0],
+    [0.12, 0.025, FIELD_L - 0.2],
+    lineMat
+  );
 
-  createBox(app, "goal-line-near",
-    [0, 0.015, 13.88],
-    [FIELD_W - 0.2, 0.025, 0.12], lineMat);
+  box(
+    app,
+    "goal-line-far",
+    [0, 0.015, -FIELD_L / 2 + 0.12],
+    [FIELD_W - 0.2, 0.025, 0.12],
+    lineMat
+  );
 
-  createBox(app, "halfway-line",
+  box(
+    app,
+    "goal-line-near",
+    [0, 0.015, FIELD_L / 2 - 0.12],
+    [FIELD_W - 0.2, 0.025, 0.12],
+    lineMat
+  );
+
+  box(
+    app,
+    "halfway-line",
     [0, 0.018, 0],
-    [FIELD_W - 0.25, 0.025, 0.09], lineMat);
+    [FIELD_W - 0.25, 0.025, 0.09],
+    lineMat
+  );
 
   // CENTER CIRCLE
-  for (let i = 0; i < 48; i++) {
-    const a = (i / 48) * Math.PI * 2;
-    const b = ((i + 1) / 48) * Math.PI * 2;
+
+  const segments = 48;
+
+  for (let i = 0; i < segments; i++) {
+    const a = (i / segments) * Math.PI * 2;
+    const b = ((i + 1) / segments) * Math.PI * 2;
 
     const x = Math.cos(a) * 2.2;
     const z = Math.sin(a) * 2.2;
@@ -109,9 +181,9 @@ export async function createScene(canvas) {
     const dx = Math.cos(b) * 2.2 - x;
     const dz = Math.sin(b) * 2.2 - z;
 
-    const seg = createBox(
+    const seg = box(
       app,
-      `circle-${i}`,
+      `center-circle-${i}`,
       [x, 0.025, z],
       [Math.hypot(dx, dz), 0.022, 0.055],
       lineMat
@@ -125,328 +197,399 @@ export async function createScene(canvas) {
   }
 
   // PENALTY BOX
-  createBox(app, "penalty-top",
+
+  box(
+    app,
+    "penalty-box-top",
     [0, 0.02, -10],
-    [9, 0.025, 0.08], lineMat);
+    [9, 0.025, 0.08],
+    lineMat
+  );
 
-  createBox(app, "penalty-left",
+  box(
+    app,
+    "penalty-box-left",
     [-4.5, 0.02, -12],
-    [0.08, 0.025, 4], lineMat);
+    [0.08, 0.025, 4],
+    lineMat
+  );
 
-  createBox(app, "penalty-right",
+  box(
+    app,
+    "penalty-box-right",
     [4.5, 0.02, -12],
-    [0.08, 0.025, 4], lineMat);
+    [0.08, 0.025, 4],
+    lineMat
+  );
 
+  // ========================================
   // GOAL
-  const goalMat = createMaterial([0.88, 0.92, 0.90]);
+  // ========================================
 
-  createBox(app, "goal-crossbar",
+  const goalMat = material(
+    [0.88, 0.92, 0.90],
+    { metalness: 0.25 }
+  );
+
+  box(
+    app,
+    "goal-crossbar",
     [0, 1.45, -13.65],
-    [5.2, 0.13, 0.13], goalMat);
+    [5.2, 0.13, 0.13],
+    goalMat
+  );
 
-  createBox(app, "goal-left",
+  box(
+    app,
+    "goal-post-left",
     [-2.55, 0.73, -13.65],
-    [0.13, 1.45, 0.13], goalMat);
+    [0.13, 1.45, 0.13],
+    goalMat
+  );
 
-  createBox(app, "goal-right",
+  box(
+    app,
+    "goal-post-right",
     [2.55, 0.73, -13.65],
-    [0.13, 1.45, 0.13], goalMat);
+    [0.13, 1.45, 0.13],
+    goalMat
+  );
 
-  // WALLS
-  createBox(app, "back-wall",
+  // STADIUM WALLS
+
+  box(
+    app,
+    "back-wall",
     [0, 1.1, -15],
-    [FIELD_W + 2, 2.2, 0.4], darkMat);
+    [FIELD_W + 2, 2.2, 0.4],
+    darkMat
+  );
 
-  createBox(app, "left-wall",
+  box(
+    app,
+    "side-wall-left",
     [-9.3, 1, 0],
-    [0.4, 2, FIELD_L + 1], darkMat);
+    [0.4, 2, FIELD_L + 1],
+    darkMat
+  );
 
-  createBox(app, "right-wall",
+  box(
+    app,
+    "side-wall-right",
     [9.3, 1, 0],
-    [0.4, 2, FIELD_L + 1], darkMat);
+    [0.4, 2, FIELD_L + 1],
+    darkMat
+  );
 
-  // PLAYER ROOT
+  // ========================================
+  // PLAYER
+  // ========================================
+
   const player = new pc.Entity("player");
   app.root.addChild(player);
-  player.setPosition(0, 0, 7);
 
-  // TORSO
   const torso = new pc.Entity("torso");
+
   torso.addComponent("render", {
     type: "capsule",
     material: playerMat
   });
-  torso.setLocalScale(0.72, 1, 0.48);
+
+  torso.setLocalScale(0.72, 1.0, 0.48);
   torso.setLocalPosition(0, 1.15, 0);
+
   player.addChild(torso);
 
-  // HEAD
-  const head = new pc.Entity("head");
+  const head = new pc.Entity("player-head");
+
   head.addComponent("render", {
     type: "sphere",
-    material: skinMat
+    material: material([0.72, 0.54, 0.39])
   });
+
   head.setLocalScale(0.5, 0.5, 0.5);
   head.setLocalPosition(0, 1.9, 0);
+
   player.addChild(head);
 
-  // SHORTS
   const shorts = new pc.Entity("shorts");
+
   shorts.addComponent("render", {
     type: "box",
     material: shortsMat
   });
+
   shorts.setLocalScale(0.72, 0.42, 0.48);
   shorts.setLocalPosition(0, 0.55, 0);
+
   player.addChild(shorts);
 
-  // LEGS
-  function makeLeg(name, x) {
-    const pivot = new pc.Entity(name);
-    pivot.setLocalPosition(x, 0.53, 0);
-    player.addChild(pivot);
-
-    const leg = new pc.Entity(`${name}-leg`);
-    leg.addComponent("render", {
-      type: "box",
-      material: shortsMat
-    });
-    leg.setLocalScale(0.23, 0.65, 0.25);
-    leg.setLocalPosition(0, -0.20, 0);
-    pivot.addChild(leg);
-
-    const foot = new pc.Entity(`${name}-foot`);
-    foot.addComponent("render", {
-      type: "box",
-      material: darkMat
-    });
-    foot.setLocalScale(0.27, 0.14, 0.42);
-    foot.setLocalPosition(0, -0.48, -0.10);
-    pivot.addChild(foot);
-
-    return pivot;
-  }
-
-  const leftLeg = makeLeg("left-leg", -0.22);
-  const rightLeg = makeLeg("right-leg", 0.22);
-
-  // PLAYER MARKER
   const marker = new pc.Entity("player-marker");
+
   marker.addComponent("render", {
     type: "box",
     material: accentMat
   });
+
   marker.setLocalScale(0.18, 0.06, 0.65);
   marker.setLocalPosition(0, 0.18, -0.32);
+
   player.addChild(marker);
 
-  // BALL
-  const ball = createSphere(app, "ball", 0.28, ballMat);
-  ball.setPosition(0, 0.28, 3);
+  // Initial player position
+  player.setPosition(0, 0, 7);
 
-  const shadow = createBox(
+  // ========================================
+  // BALL
+  // ========================================
+
+  const ball = sphere(
+    app,
+    "ball",
+    [0, 0.28, 3],
+    0.28,
+    ballMat
+  );
+
+  const shadow = box(
     app,
     "ball-shadow",
     [0, 0.025, 3],
     [0.55, 0.025, 0.55],
-    darkMat
+    material([0.025, 0.06, 0.035])
   );
 
+  // ========================================
   // LIGHT
-  const light = new pc.Entity("sun");
-  light.addComponent("light", {
+  // ========================================
+
+  const ambient = new pc.Entity("ambient-light");
+
+  ambient.addComponent("light", {
     type: "directional",
     color: new pc.Color(1, 0.96, 0.86),
     intensity: 1.4
   });
-  light.setEulerAngles(48, 25, 0);
-  app.root.addChild(light);
 
+  ambient.setEulerAngles(48, 25, 0);
+  app.root.addChild(ambient);
+
+  // ========================================
   // CAMERA
+  // ========================================
+
   const camera = new pc.Entity("camera");
+
   camera.addComponent("camera", {
     clearColor: new pc.Color(0.035, 0.10, 0.075),
     fov: 58,
     nearClip: 0.1,
     farClip: 100
   });
+
   app.root.addChild(camera);
 
-  // INPUT
+  // Camera focus follows the player with a delay.
+  // This lets the player visibly move on the screen.
+
+  const cameraFocus = new pc.Vec3(0, 0, 7);
+
+  camera.setPosition(0, 7.0, 15.5);
+  camera.lookAt(0, 0.8, 4.5);
+
+  // ========================================
+  // GAME VARIABLES
+  // ========================================
+
   let moveX = 0;
   let moveZ = 0;
   let sprint = false;
 
-  // BALL PHYSICS
-  const ballVelocity = new pc.Vec3(0, 0, 0);
-
-  let hasPossession = false;
-  let touchTimer = 0;
-  let touchSide = 1;
-  let kickLock = 0;
-
-  // PLAYER ANIMATION
-  let animationTime = 0;
-
-  // GAME SCORE
   let score = 0;
 
-  function clampMagnitude(x, z, max) {
-    const length = Math.hypot(x, z);
+  // Player's last facing direction.
+  let lastDirX = 0;
+  let lastDirZ = -1;
 
-    if (length > max) {
-      return {
-        x: x / length * max,
-        z: z / length * max
-      };
-    }
+  // Ball physics.
+  const ballVelocity = new pc.Vec3(0, 0, 0);
 
-    return { x, z };
-  }
+  let kickLock = 0;
+  let touchCooldown = 0;
+  let alternateFoot = 1;
+
+  // ========================================
+  // PLAYER + BALL UPDATE
+  // ========================================
 
   function update(dt) {
-    const delta = Math.min(dt, 0.04);
+    const delta = Math.min(dt, 0.05);
 
     kickLock = Math.max(0, kickLock - delta);
+    touchCooldown = Math.max(0, touchCooldown - delta);
 
-    // MOVEMENT INPUT
+    // --------------------------------------
+    // INPUT
+    // --------------------------------------
+
     const inputLength = Math.hypot(moveX, moveZ);
-    const moving = inputLength > 0.08;
 
-    let dirX = 0;
-    let dirZ = -1;
+    const inputActive = inputLength > 0.05;
 
-    if (moving) {
-      dirX = moveX / inputLength;
-      dirZ = moveZ / inputLength;
-    } else {
-      const yaw = player.getEulerAngles().y *
-        Math.PI / 180;
+    const inputScale = Math.min(1, inputLength);
 
-      dirX = -Math.sin(yaw);
-      dirZ = -Math.cos(yaw);
-    }
+    const directionX = inputActive
+      ? moveX / inputLength
+      : lastDirX;
 
-    const inputAmount = Math.min(1, inputLength);
-    const speed = (sprint ? 6.8 : 4.2) * inputAmount;
+    const directionZ = inputActive
+      ? moveZ / inputLength
+      : lastDirZ;
 
+    // --------------------------------------
     // PLAYER MOVEMENT
-    if (moving) {
-      const p = player.getPosition();
+    // --------------------------------------
 
-      p.x += dirX * speed * delta;
-      p.z += dirZ * speed * delta;
+    const normalSpeed = 4.4;
+    const sprintSpeed = 7.0;
 
-      p.x = pc.math.clamp(p.x, -8, 8);
-      p.z = pc.math.clamp(p.z, -12.3, 12.3);
+    const baseSpeed = sprint ? sprintSpeed : normalSpeed;
 
-      player.setPosition(p);
+    const playerSpeed = baseSpeed * inputScale;
 
-      // PLAYER ROTATION
+    const p = player.getPosition();
+
+    if (inputActive) {
+      // Move directly in world coordinates.
+      // This avoids movement changing because of player rotation.
+
+      p.x += directionX * playerSpeed * delta;
+      p.z += directionZ * playerSpeed * delta;
+
+      lastDirX = directionX;
+      lastDirZ = directionZ;
+
+      // Rotate the player toward the movement direction.
+
       const targetYaw =
-        Math.atan2(-dirX, -dirZ) * 180 / Math.PI;
+        Math.atan2(-directionX, -directionZ) *
+        180 / Math.PI;
 
       const currentYaw = player.getEulerAngles().y;
 
-      const newYaw = pc.math.lerpAngle(
+      const smoothYaw = pc.math.lerpAngle(
         currentYaw,
         targetYaw,
-        Math.min(1, delta * 10)
+        Math.min(1, delta * 12)
       );
 
-      player.setEulerAngles(0, newYaw, 0);
+      player.setEulerAngles(0, smoothYaw, 0);
     }
 
-    // PROCEDURAL LEG ANIMATION
-    if (moving) {
-      animationTime += delta * (sprint ? 13 : 8) *
-        inputAmount;
-    } else {
-      animationTime *= Math.max(0, 1 - delta * 7);
-    }
+    // Keep player inside the field.
 
-    const swing = moving
-      ? Math.sin(animationTime) * (sprint ? 30 : 21)
-      : 0;
+    p.x = pc.math.clamp(p.x, -8.0, 8.0);
+    p.z = pc.math.clamp(p.z, -12.3, 12.3);
 
-    leftLeg.setLocalEulerAngles(swing, 0, 0);
-    rightLeg.setLocalEulerAngles(-swing, 0, 0);
+    player.setPosition(p);
 
-    // BALL POSITION
-    const p = player.getPosition();
+    // --------------------------------------
+    // DRIBBLING: TOUCH-BASED SYSTEM
+    // --------------------------------------
+
     const bp = ball.getPosition();
 
-    const dx = bp.x - p.x;
-    const dz = bp.z - p.z;
-    const distance = Math.hypot(dx, dz);
+    const relativeX = bp.x - p.x;
+    const relativeZ = bp.z - p.z;
 
-    const forwardDot = dx * dirX + dz * dirZ;
+    // Distance from player to ball.
+    const distance = Math.hypot(
+      relativeX,
+      relativeZ
+    );
 
-    // BALL POSSESSION
-    if (!hasPossession && moving && kickLock <= 0) {
-      if (distance < 1.25 && forwardDot > -0.35) {
-        hasPossession = true;
-        touchTimer = 0.05;
-      }
+    // Calculate ball position relative to player's direction.
+
+    const forwardDistance =
+      relativeX * directionX +
+      relativeZ * directionZ;
+
+    const rightX = -directionZ;
+    const rightZ = directionX;
+
+    const sideDistance =
+      relativeX * rightX +
+      relativeZ * rightZ;
+
+    // The ball must be in front of the player,
+    // close enough for a foot touch.
+
+    const ballInFront =
+      forwardDistance > 0.15 &&
+      forwardDistance < 1.35;
+
+    const ballNearFeet =
+      Math.abs(sideDistance) < 0.68 &&
+      distance < 1.55;
+
+    const canTouchBall =
+      inputActive &&
+      kickLock <= 0 &&
+      touchCooldown <= 0 &&
+      ballInFront &&
+      ballNearFeet;
+
+    if (canTouchBall) {
+      // Project current ball velocity onto forward direction.
+
+      const ballForwardSpeed =
+        ballVelocity.x * directionX +
+        ballVelocity.z * directionZ;
+
+      // Keep the ball slightly ahead of the player.
+
+      const desiredBallSpeed = sprint ? 7.8 : 5.2;
+
+      // Apply a short impulse instead of pulling the ball.
+      // This creates separate touches rather than magnetic movement.
+
+      const speedDifference =
+        desiredBallSpeed - ballForwardSpeed;
+
+      const pushStrength = pc.math.clamp(
+        speedDifference * 0.72,
+        1.6,
+        3.2
+      );
+
+      ballVelocity.x += directionX * pushStrength;
+      ballVelocity.z += directionZ * pushStrength;
+
+      // Small alternating side variation
+      // to avoid every touch following one exact line.
+
+      const sidePush = 0.08 * alternateFoot;
+
+      ballVelocity.x += rightX * sidePush;
+      ballVelocity.z += rightZ * sidePush;
+
+      alternateFoot *= -1;
+
+      // Touch frequency.
+
+      touchCooldown = sprint ? 0.20 : 0.24;
     }
 
-    // RELEASE POSSESSION IF BALL GETS TOO FAR
-    if (hasPossession && distance > 1.85) {
-      hasPossession = false;
-    }
+    // --------------------------------------
+    // BALL FRICTION
+    // --------------------------------------
 
-    // TOUCH-BASED DRIBBLING
-    if (hasPossession && moving && kickLock <= 0) {
-      touchTimer -= delta;
+    // The ball keeps momentum when it is not touched.
 
-      const touchInterval = sprint ? 0.30 : 0.23;
+    const friction = Math.pow(0.994, delta * 60);
 
-      if (touchTimer <= 0) {
-        touchTimer = touchInterval;
-
-        touchSide *= -1;
-
-        // Target is slightly in front and to one side.
-        const sideX = -dirZ;
-        const sideZ = dirX;
-
-        const frontDistance = sprint ? 1.02 : 0.72;
-        const sideDistance = 0.13 * touchSide;
-
-        const targetX =
-          p.x + dirX * frontDistance +
-          sideX * sideDistance;
-
-        const targetZ =
-          p.z + dirZ * frontDistance +
-          sideZ * sideDistance;
-
-        const errorX = targetX - bp.x;
-        const errorZ = targetZ - bp.z;
-
-        // Each touch gives the ball a small impulse.
-        const correction = clampMagnitude(
-          errorX * 2.0,
-          errorZ * 2.0,
-          sprint ? 2.0 : 1.5
-        );
-
-        ballVelocity.x += correction.x;
-        ballVelocity.z += correction.z;
-
-        // A little forward momentum from the foot.
-        ballVelocity.x += dirX * (sprint ? 0.65 : 0.38);
-        ballVelocity.z += dirZ * (sprint ? 0.65 : 0.38);
-      }
-    }
-
-    // BALL ROLLING AND FRICTION
-    if (!hasPossession || !moving || kickLock > 0) {
-      const friction = Math.pow(0.982, delta * 60);
-
-      ballVelocity.x *= friction;
-      ballVelocity.z *= friction;
-    }
+    ballVelocity.x *= friction;
+    ballVelocity.z *= friction;
 
     if (Math.abs(ballVelocity.x) < 0.025) {
       ballVelocity.x = 0;
@@ -456,115 +599,172 @@ export async function createScene(canvas) {
       ballVelocity.z = 0;
     }
 
-    // INTEGRATE BALL MOVEMENT
+    // Limit maximum ball speed.
+
+    const ballSpeed = Math.hypot(
+      ballVelocity.x,
+      ballVelocity.z
+    );
+
+    const maxBallSpeed = 15;
+
+    if (ballSpeed > maxBallSpeed) {
+      const scale = maxBallSpeed / ballSpeed;
+
+      ballVelocity.x *= scale;
+      ballVelocity.z *= scale;
+    }
+
+    // --------------------------------------
+    // BALL MOVEMENT
+    // --------------------------------------
+
     bp.x += ballVelocity.x * delta;
     bp.z += ballVelocity.z * delta;
 
+    // --------------------------------------
     // BALL BOUNDARIES
+    // --------------------------------------
+
     if (bp.x < -8.4 || bp.x > 8.4) {
       bp.x = pc.math.clamp(bp.x, -8.4, 8.4);
-      ballVelocity.x *= -0.4;
-      hasPossession = false;
+      ballVelocity.x *= -0.45;
     }
 
     if (bp.z > 13.1) {
       bp.z = 13.1;
-      ballVelocity.z *= -0.4;
-      hasPossession = false;
+      ballVelocity.z *= -0.45;
     }
 
-    if (bp.z < -13.25 && Math.abs(bp.x) > 2.55) {
+    // Leave the goal mouth open.
+
+    if (
+      bp.z < -13.25 &&
+      Math.abs(bp.x) > 2.55
+    ) {
       bp.z = -13.25;
-      ballVelocity.z *= -0.4;
-      hasPossession = false;
+      ballVelocity.z *= -0.45;
     }
 
-    bp.z = pc.math.clamp(bp.z, -13.5, 13.1);
+    bp.z = pc.math.clamp(
+      bp.z,
+      -13.5,
+      13.1
+    );
 
     ball.setPosition(bp);
 
-    // BALL ROTATION
-    const rollSpeed = Math.hypot(
+    // --------------------------------------
+    // BALL ROTATION + SHADOW
+    // --------------------------------------
+
+    const rollingSpeed = Math.hypot(
       ballVelocity.x,
       ballVelocity.z
     );
 
     ball.rotate(
-      ballVelocity.z * 80 * delta,
+      rollingSpeed * 45 * delta,
       0,
-      -ballVelocity.x * 80 * delta
+      rollingSpeed * 20 * delta
     );
 
-    // SHADOW
-    shadow.setPosition(bp.x, 0.025, bp.z);
+    shadow.setPosition(
+      bp.x,
+      0.025,
+      bp.z
+    );
 
+    // ======================================
     // CAMERA FOLLOW
-    const cameraTarget = new pc.Vec3(
-      p.x,
-      3.5,
-      p.z + 6.2
+    // ======================================
+
+    // Camera follows more slowly than the player.
+    // Therefore, the player can move visibly
+    // toward the top, bottom, left or right of the screen.
+
+    const followSpeed = 2.8;
+
+    const followBlend =
+      1 - Math.exp(-followSpeed * delta);
+
+    cameraFocus.lerp(
+      cameraFocus,
+      p,
+      followBlend
     );
 
-    const cameraPosition = camera.getPosition();
-
-    cameraPosition.lerp(
-      cameraPosition,
-      cameraTarget,
-      Math.min(1, delta * 4)
+    camera.setPosition(
+      cameraFocus.x,
+      7.0,
+      cameraFocus.z + 8.5
     );
 
-    camera.setPosition(cameraPosition);
-    camera.lookAt(p.x, 0.8, p.z - 2.5);
+    camera.lookAt(
+      cameraFocus.x,
+      0.8,
+      cameraFocus.z - 2.5
+    );
   }
 
-  // SHOOTING
+  // ========================================
+  // KICK
+  // ========================================
+
   function kick() {
     const p = player.getPosition();
     const bp = ball.getPosition();
 
     const dx = bp.x - p.x;
     const dz = bp.z - p.z;
+
     const distance = Math.hypot(dx, dz);
 
-    if (distance > 1.9) {
+    if (distance > 2.0) {
       return false;
     }
 
-    const yaw = player.getEulerAngles().y *
+    // Kick toward the direction the player faces.
+
+    const yaw =
+      player.getEulerAngles().y *
       Math.PI / 180;
 
-    let dirX = -Math.sin(yaw);
-    let dirZ = -Math.cos(yaw);
+    const dirX = -Math.sin(yaw);
+    const dirZ = -Math.cos(yaw);
 
-    // If moving, use joystick direction.
-    const inputLength = Math.hypot(moveX, moveZ);
+    // Apply kick velocity.
 
-    if (inputLength > 0.08) {
-      dirX = moveX / inputLength;
-      dirZ = moveZ / inputLength;
-    }
+    ballVelocity.x = dirX * 14;
+    ballVelocity.z = dirZ * 14;
 
-    const power = sprint ? 16 : 13;
+    // Prevent immediate dribbling after the kick.
 
-    ballVelocity.x = dirX * power;
-    ballVelocity.z = dirZ * power;
-
-    hasPossession = false;
     kickLock = 0.65;
-    touchTimer = 0;
+    touchCooldown = 0.35;
 
     return true;
   }
 
+  // ========================================
   // RESET BALL
+  // ========================================
+
   function resetBall() {
     ball.setPosition(0, 0.28, 3);
+
     ballVelocity.set(0, 0, 0);
 
-    hasPossession = false;
-    touchTimer = 0;
     kickLock = 0;
+    touchCooldown = 0;
+    alternateFoot = 1;
+
+    shadow.setPosition(0, 0.025, 3);
   }
+
+  // ========================================
+  // RETURN GAME API
+  // ========================================
 
   return {
     app,
