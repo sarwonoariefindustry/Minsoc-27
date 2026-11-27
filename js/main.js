@@ -11,52 +11,51 @@ let hintTimeout = null;
 try {
   const game = await createScene(canvas);
 
+  function showActionHint(success, actionName) {
+    if (hintTimeout) clearTimeout(hintTimeout);
+
+    hint.textContent = success
+      ? `${actionName} berhasil!`
+      : "Dekati bola untuk melakukan aksi.";
+
+    if (success) {
+      hintTimeout = setTimeout(() => {
+        hint.textContent =
+          "Joystick kiri: bergerak | Geser kanan: kamera";
+      }, 1200);
+    }
+  }
+
   const controls = setupControls({
-    // Player movement
     onMove: (x, z) => {
       game.setMovement(x, z);
     },
 
-    // Free camera rotation
     onCamera: (dx, dy) => {
       game.setCameraInput(dx, dy);
     },
 
-    // Sprint
     onSprint: (active) => {
       game.setSprint(active);
     },
 
-    // Kick
-    onKick: () => {
-      const kicked = game.kick();
+    onPass: () => {
+      showActionHint(game.pass(), "PASS");
+    },
 
-      if (hintTimeout) {
-        clearTimeout(hintTimeout);
-      }
+    onThroughPass: () => {
+      showActionHint(game.throughPass(), "THROUGH PASS");
+    },
 
-      hint.textContent = kicked
-        ? "Tendangan dilakukan!"
-        : "Dekati bola untuk menendang.";
-
-      if (kicked) {
-        hintTimeout = setTimeout(() => {
-          hint.textContent =
-            "Joystick kiri: bergerak | Geser kanan: kamera";
-        }, 1400);
-      }
+    onShoot: () => {
+      showActionHint(game.shoot(), "SHOOT");
     }
   });
 
-  // Reset ball
-  document.getElementById("reset").addEventListener(
-    "click",
-    () => {
-      game.resetBall();
-
-      hint.textContent = "Bola dikembalikan ke tengah";
-    }
-  );
+  document.getElementById("reset").addEventListener("click", () => {
+    game.resetBall();
+    hint.textContent = "Bola dikembalikan ke tengah";
+  });
 
   // One update loop only.
   game.app.on("update", (dt) => {
@@ -69,16 +68,13 @@ try {
     loading.remove();
   }, 400);
 
-  // Cleanup
   window.addEventListener(
     "pagehide",
     () => {
       controls.destroy();
       game.app.destroy();
 
-      if (hintTimeout) {
-        clearTimeout(hintTimeout);
-      }
+      if (hintTimeout) clearTimeout(hintTimeout);
     },
     { once: true }
   );
