@@ -137,6 +137,9 @@ export function setupControls({
 
   // FREE CAMERA DRAG
   function cameraDown(e) {
+    // Action buttons and match overlay must not rotate the camera.
+    if (e.target.closest(".action, .reset, .match-overlay")) return;
+
     if (e.clientX < window.innerWidth * 0.42) return;
     if (cameraPointerId !== null) return;
 
@@ -186,7 +189,14 @@ export function setupControls({
   // SPRINT BUTTON
   function sprintStart(e) {
     e.preventDefault();
+    e.stopPropagation();
+
     touchSprint = true;
+
+    if (sprintButton.setPointerCapture) {
+      sprintButton.setPointerCapture(e.pointerId);
+    }
+
     updateSprint();
   }
 
@@ -204,6 +214,7 @@ export function setupControls({
   function bindAction(button, callback) {
     function start(e) {
       e.preventDefault();
+      e.stopPropagation();
       callback();
     }
 
