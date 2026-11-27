@@ -6,34 +6,53 @@ const FIELD_L = 28;
 
 function material(color, options = {}) {
   const m = new pc.StandardMaterial();
-  m.diffuse = new pc.Color(color[0], color[1], color[2]);
+
+  m.diffuse = new pc.Color(
+    color[0],
+    color[1],
+    color[2]
+  );
+
   m.metalness = options.metalness ?? 0;
   m.gloss = options.gloss ?? 0.25;
   m.update();
+
   return m;
 }
 
 function box(app, name, position, scale, mat) {
   const e = new pc.Entity(name);
+
   e.addComponent("render", {
     type: "box",
     material: mat
   });
+
   e.setLocalPosition(...position);
   e.setLocalScale(...scale);
+
   app.root.addChild(e);
+
   return e;
 }
 
 function sphere(app, name, position, radius, mat) {
   const e = new pc.Entity(name);
+
   e.addComponent("render", {
     type: "sphere",
     material: mat
   });
+
   e.setLocalPosition(...position);
-  e.setLocalScale(radius * 2, radius * 2, radius * 2);
+  e.setLocalScale(
+    radius * 2,
+    radius * 2,
+    radius * 2
+  );
+
   app.root.addChild(e);
+
   return e;
 }
 
@@ -46,28 +65,42 @@ export async function createScene(canvas) {
 
   app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
   app.setCanvasResolution(pc.RESOLUTION_AUTO);
-  app.scene.ambientLight = new pc.Color(0.48, 0.55, 0.48);
+
+  app.scene.ambientLight = new pc.Color(
+    0.48,
+    0.55,
+    0.48
+  );
+
   app.start();
 
+  // ==================================
   // MATERIALS
+  // ==================================
+
   const grassA = material([0.10, 0.34, 0.19]);
   const grassB = material([0.12, 0.39, 0.21]);
   const lineMat = material([0.88, 0.94, 0.88]);
   const darkMat = material([0.035, 0.075, 0.06]);
 
-  const playerMat = material([0.82, 0.88, 0.92], {
-    gloss: 0.5
-  });
+  const playerMat = material(
+    [0.82, 0.88, 0.92],
+    { gloss: 0.5 }
+  );
 
   const shortsMat = material([0.055, 0.10, 0.14]);
 
-  const ballMat = material([0.96, 0.96, 0.91], {
-    gloss: 0.65
-  });
+  const ballMat = material(
+    [0.96, 0.96, 0.91],
+    { gloss: 0.65 }
+  );
 
   const accentMat = material([0.72, 0.95, 0.23]);
 
+  // ==================================
   // FIELD
+  // ==================================
+
   box(
     app,
     "field-base",
@@ -87,6 +120,7 @@ export async function createScene(canvas) {
   }
 
   // FIELD LINES
+
   box(
     app,
     "touchline-left",
@@ -128,6 +162,7 @@ export async function createScene(canvas) {
   );
 
   // CENTER CIRCLE
+
   const segments = 48;
 
   for (let i = 0; i < segments; i++) {
@@ -156,6 +191,7 @@ export async function createScene(canvas) {
   }
 
   // PENALTY BOX
+
   box(
     app,
     "penalty-box-top",
@@ -180,10 +216,14 @@ export async function createScene(canvas) {
     lineMat
   );
 
+  // ==================================
   // GOAL
-  const goalMat = material([0.88, 0.92, 0.90], {
-    metalness: 0.25
-  });
+  // ==================================
+
+  const goalMat = material(
+    [0.88, 0.92, 0.90],
+    { metalness: 0.25 }
+  );
 
   box(
     app,
@@ -210,6 +250,7 @@ export async function createScene(canvas) {
   );
 
   // STADIUM WALLS
+
   box(
     app,
     "back-wall",
@@ -234,7 +275,10 @@ export async function createScene(canvas) {
     darkMat
   );
 
+  // ==================================
   // PLAYER
+  // ==================================
+
   const player = new pc.Entity("player");
   app.root.addChild(player);
 
@@ -247,6 +291,7 @@ export async function createScene(canvas) {
 
   torso.setLocalScale(0.72, 1.0, 0.48);
   torso.setLocalPosition(0, 1.15, 0);
+
   player.addChild(torso);
 
   const head = sphere(
@@ -268,6 +313,7 @@ export async function createScene(canvas) {
 
   shorts.setLocalScale(0.72, 0.42, 0.48);
   shorts.setLocalPosition(0, 0.55, 0);
+
   player.addChild(shorts);
 
   const marker = new pc.Entity("player-marker");
@@ -279,11 +325,15 @@ export async function createScene(canvas) {
 
   marker.setLocalScale(0.18, 0.06, 0.65);
   marker.setLocalPosition(0, 0.18, -0.32);
+
   player.addChild(marker);
 
   player.setPosition(0, 0, 7);
 
+  // ==================================
   // BALL
+  // ==================================
+
   const ball = sphere(
     app,
     "ball",
@@ -300,7 +350,10 @@ export async function createScene(canvas) {
     material([0.025, 0.06, 0.035])
   );
 
+  // ==================================
   // LIGHT
+  // ==================================
+
   const ambient = new pc.Entity("ambient-light");
 
   ambient.addComponent("light", {
@@ -310,9 +363,13 @@ export async function createScene(canvas) {
   });
 
   ambient.setEulerAngles(48, 25, 0);
+
   app.root.addChild(ambient);
 
+  // ==================================
   // CAMERA
+  // ==================================
+
   const camera = new pc.Entity("camera");
 
   camera.addComponent("camera", {
@@ -324,65 +381,89 @@ export async function createScene(canvas) {
 
   app.root.addChild(camera);
 
+  // ==================================
   // GAME VARIABLES
+  // ==================================
+
   let moveX = 0;
   let moveZ = 0;
   let sprint = false;
   let score = 0;
 
-  // PLAYER AND CAMERA ROTATION
+  // Player rotation
   let playerYaw = 0;
+
+  // Independent camera rotation
   let cameraYaw = 0;
+  let cameraPitch = 18;
 
-  // Stable input reference while joystick is active
-  let controlYaw = 0;
-  let wasInputActive = false;
+  const CAMERA_DISTANCE = 8.0;
+  const CAMERA_SENSITIVITY = 0.18;
 
-  // Last valid movement direction
+  // Last movement direction
   let lastDirX = 0;
   let lastDirZ = -1;
 
-  // BALL PHYSICS
+  // Ball physics
   const ballVelocity = new pc.Vec3(0, 0, 0);
+
   let kickLock = 0;
 
-  // UPDATE GAME
-  function update(dt) {
-    const delta = Math.min(dt, 0.05);
+  // ==================================
+  // CAMERA INPUT
+  // ==================================
 
-    kickLock = Math.max(0, kickLock - delta);
+  function setCameraInput(dx, dy) {
+    cameraYaw -= dx * CAMERA_SENSITIVITY;
 
-    // INPUT
+    cameraPitch += dy * CAMERA_SENSITIVITY;
+
+    // Prevent camera from going too high or too low.
+    cameraPitch = pc.math.clamp(
+      cameraPitch,
+      8,
+      38
+    );
+  }
+
+  // ==================================
+  // PLAYER MOVEMENT
+  // ==================================
+
+  function updatePlayer(delta) {
     const inputLength = Math.hypot(moveX, moveZ);
-    const inputActive = inputLength > 0.08;
+
+    const inputActive = inputLength > 0.06;
+
     const inputScale = Math.min(1, inputLength);
 
-    // Capture camera direction when joystick first becomes active.
-    // This prevents camera rotation from changing the movement basis
-    // while the player is still holding the joystick.
-    if (inputActive && !wasInputActive) {
-      controlYaw = cameraYaw;
-    }
+    const speed = (
+      sprint ? 7.0 : 4.4
+    ) * inputScale;
 
-    wasInputActive = inputActive;
-
-    // MOVEMENT DIRECTION
     let directionX = lastDirX;
     let directionZ = lastDirZ;
 
     if (inputActive) {
-      const yawRad = controlYaw * Math.PI / 180;
+      // Camera-relative movement basis.
+      const yaw = cameraYaw * Math.PI / 180;
 
-      // Camera-relative forward and right vectors
-      const forwardX = -Math.sin(yawRad);
-      const forwardZ = -Math.cos(yawRad);
+      const forwardX = -Math.sin(yaw);
+      const forwardZ = -Math.cos(yaw);
 
-      const rightX = Math.cos(yawRad);
-      const rightZ = -Math.sin(yawRad);
+      const rightX = Math.cos(yaw);
+      const rightZ = -Math.sin(yaw);
 
-      // Convert joystick input into world movement
-      const rawX = rightX * moveX - forwardX * moveZ;
-      const rawZ = rightZ * moveX - forwardZ * moveZ;
+      // Joystick up is negative Z.
+      const forwardInput = -moveZ;
+
+      const rawX =
+        rightX * moveX +
+        forwardX * forwardInput;
+
+      const rawZ =
+        rightZ * moveX +
+        forwardZ * forwardInput;
 
       const rawLength = Math.hypot(rawX, rawZ);
 
@@ -390,64 +471,68 @@ export async function createScene(canvas) {
         directionX = rawX / rawLength;
         directionZ = rawZ / rawLength;
       }
-    }
 
-    // PLAYER SPEED
-    const normalSpeed = 4.4;
-    const sprintSpeed = 7.0;
+      const p = player.getPosition();
 
-    const speed = (
-      sprint ? sprintSpeed : normalSpeed
-    ) * inputScale;
-
-    // PLAYER MOVEMENT
-    const p = player.getPosition();
-
-    if (inputActive) {
       p.x += directionX * speed * delta;
       p.z += directionZ * speed * delta;
 
-      lastDirX = directionX;
-      lastDirZ = directionZ;
-
-      // Character faces movement direction.
-      // Character forward is local -Z.
+      // Character faces its movement direction.
       const targetYaw =
-        Math.atan2(-directionX, -directionZ) * 180 / Math.PI;
+        Math.atan2(-directionX, -directionZ) *
+        180 / Math.PI;
 
       playerYaw = pc.math.lerpAngle(
         playerYaw,
         targetYaw,
-        Math.min(1, delta * 15)
+        Math.min(1, delta * 13)
       );
 
       player.setEulerAngles(0, playerYaw, 0);
+
+      lastDirX = directionX;
+      lastDirZ = directionZ;
+
+      // Field boundaries.
+      p.x = pc.math.clamp(p.x, -8.0, 8.0);
+      p.z = pc.math.clamp(p.z, -12.3, 12.3);
+
+      player.setPosition(p);
     }
 
-    // PLAYER BOUNDARIES
-    p.x = pc.math.clamp(p.x, -8.0, 8.0);
-    p.z = pc.math.clamp(p.z, -12.3, 12.3);
+    return {
+      inputActive,
+      inputScale,
+      directionX,
+      directionZ
+    };
+  }
 
-    player.setPosition(p);
+  // ==================================
+  // BALL PHYSICS
+  // ==================================
 
-    // BALL STATE
+  function updateBall(delta, movement) {
+    kickLock = Math.max(0, kickLock - delta);
+
+    const p = player.getPosition();
     const bp = ball.getPosition();
 
     const dx = bp.x - p.x;
     const dz = bp.z - p.z;
+
     const distance = Math.hypot(dx, dz);
 
-    // DRIBBLING DIRECTION
-    if (!inputActive) {
-      const yaw = playerYaw * Math.PI / 180;
+    const directionX = movement.inputActive
+      ? movement.directionX
+      : lastDirX;
 
-      directionX = -Math.sin(yaw);
-      directionZ = -Math.cos(yaw);
-    }
+    const directionZ = movement.inputActive
+      ? movement.directionZ
+      : lastDirZ;
 
-    // DRIBBLING SPRING SYSTEM
     const canDribble =
-      inputActive &&
+      movement.inputActive &&
       kickLock <= 0 &&
       distance < 1.55;
 
@@ -457,10 +542,13 @@ export async function createScene(canvas) {
       const dribbleDistance =
         0.72 +
         sprintFactor * 0.28 +
-        inputScale * 0.08;
+        movement.inputScale * 0.08;
 
-      const targetX = p.x + directionX * dribbleDistance;
-      const targetZ = p.z + directionZ * dribbleDistance;
+      const targetX =
+        p.x + directionX * dribbleDistance;
+
+      const targetZ =
+        p.z + directionZ * dribbleDistance;
 
       const errorX = targetX - bp.x;
       const errorZ = targetZ - bp.z;
@@ -479,7 +567,7 @@ export async function createScene(canvas) {
       ) * delta;
 
     } else {
-      // FREE BALL PHYSICS
+      // Preserve free-ball momentum.
       const friction = Math.pow(0.985, delta * 60);
 
       ballVelocity.x *= friction;
@@ -494,11 +582,11 @@ export async function createScene(canvas) {
       }
     }
 
-    // BALL MOVEMENT
+    // Integrate ball movement.
     bp.x += ballVelocity.x * delta;
     bp.z += ballVelocity.z * delta;
 
-    // BALL BOUNDARIES
+    // Ball boundaries.
     if (bp.x < -8.4 || bp.x > 8.4) {
       bp.x = pc.math.clamp(bp.x, -8.4, 8.4);
       ballVelocity.x *= -0.45;
@@ -509,7 +597,7 @@ export async function createScene(canvas) {
       ballVelocity.z *= -0.45;
     }
 
-    // Leave goal mouth open
+    // Leave goal mouth open.
     if (bp.z < -13.25 && Math.abs(bp.x) > 2.55) {
       bp.z = -13.25;
       ballVelocity.z *= -0.45;
@@ -519,7 +607,7 @@ export async function createScene(canvas) {
 
     ball.setPosition(bp);
 
-    // BALL ROLL
+    // Visual ball roll.
     const rollingSpeed = Math.hypot(
       ballVelocity.x,
       ballVelocity.z
@@ -531,56 +619,82 @@ export async function createScene(canvas) {
       0
     );
 
-    shadow.setPosition(bp.x, 0.025, bp.z);
-
-    // THIRD-PERSON CAMERA
-    // During movement, camera yaw stays stable.
-    // After movement stops, it smoothly follows player heading.
-    if (!inputActive) {
-      cameraYaw = pc.math.lerpAngle(
-        cameraYaw,
-        playerYaw,
-        Math.min(1, delta * 3.5)
-      );
-    }
-
-    const cameraRad = cameraYaw * Math.PI / 180;
-
-    // Camera position behind player
-    const desiredCameraX =
-      p.x + Math.sin(cameraRad) * 8.5;
-
-    const desiredCameraZ =
-      p.z + Math.cos(cameraRad) * 8.5;
-
-    const desiredCameraPosition = new pc.Vec3(
-      desiredCameraX,
-      5.4,
-      desiredCameraZ
-    );
-
-    const currentCameraPosition = camera.getPosition();
-
-    currentCameraPosition.lerp(
-      currentCameraPosition,
-      desiredCameraPosition,
-      1 - Math.exp(-5 * delta)
-    );
-
-    camera.setPosition(currentCameraPosition);
-
-    // Camera looks slightly ahead of player
-    const forwardX = -Math.sin(cameraRad);
-    const forwardZ = -Math.cos(cameraRad);
-
-    camera.lookAt(
-      p.x + forwardX * 2.2,
-      1,
-      p.z + forwardZ * 2.2
+    shadow.setPosition(
+      bp.x,
+      0.025,
+      bp.z
     );
   }
 
+  // ==================================
+  // CAMERA FOLLOW
+  // ==================================
+
+  function updateCamera(delta) {
+    const p = player.getPosition();
+
+    const yaw = cameraYaw * Math.PI / 180;
+    const pitch = cameraPitch * Math.PI / 180;
+
+    const horizontalDistance =
+      CAMERA_DISTANCE * Math.cos(pitch);
+
+    const verticalDistance =
+      CAMERA_DISTANCE * Math.sin(pitch);
+
+    // Camera stays behind the player,
+    // but its rotation is controlled independently.
+    const desiredX =
+      p.x + Math.sin(yaw) * horizontalDistance;
+
+    const desiredY =
+      1.2 + verticalDistance;
+
+    const desiredZ =
+      p.z + Math.cos(yaw) * horizontalDistance;
+
+    const desiredPosition = new pc.Vec3(
+      desiredX,
+      desiredY,
+      desiredZ
+    );
+
+    const currentPosition = camera.getPosition();
+
+    currentPosition.lerp(
+      currentPosition,
+      desiredPosition,
+      1 - Math.exp(-8 * delta)
+    );
+
+    camera.setPosition(currentPosition);
+
+    // Look toward the player's upper body.
+    camera.lookAt(
+      p.x,
+      1.15,
+      p.z
+    );
+  }
+
+  // ==================================
+  // MAIN UPDATE
+  // ==================================
+
+  function update(dt) {
+    const delta = Math.min(dt, 0.05);
+
+    const movement = updatePlayer(delta);
+
+    updateBall(delta, movement);
+
+    updateCamera(delta);
+  }
+
+  // ==================================
   // KICK
+  // ==================================
+
   function kick() {
     const p = player.getPosition();
     const bp = ball.getPosition();
@@ -594,7 +708,7 @@ export async function createScene(canvas) {
       return false;
     }
 
-    // Kick toward player facing direction
+    // Kick in the direction the player faces.
     const yaw = playerYaw * Math.PI / 180;
 
     const dirX = -Math.sin(yaw);
@@ -603,20 +717,27 @@ export async function createScene(canvas) {
     ballVelocity.x = dirX * 14;
     ballVelocity.z = dirZ * 14;
 
-    // Temporarily disable automatic dribbling
     kickLock = 0.55;
 
     return true;
   }
 
+  // ==================================
   // RESET BALL
+  // ==================================
+
   function resetBall() {
     ball.setPosition(0, 0.28, 3);
+
     ballVelocity.set(0, 0, 0);
+
     kickLock = 0;
   }
 
+  // ==================================
   // PUBLIC GAME INTERFACE
+  // ==================================
+
   return {
     app,
 
@@ -636,6 +757,8 @@ export async function createScene(canvas) {
     setSprint(value) {
       sprint = value;
     },
+
+    setCameraInput,
 
     kick,
     resetBall,
