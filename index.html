@@ -1,11 +1,13 @@
+
 <!doctype html>
 <html lang="id">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07130f">
-  <title>Mini Soccer — Prototype 0.1</title>
+  <title>Mini Soccer — Prototype 0.8</title>
   <link rel="stylesheet" href="./css/style.css">
+
   <script type="importmap">
     {
       "imports": {
@@ -17,27 +19,53 @@
 <body>
   <main id="game-shell">
     <canvas id="application" aria-label="Mini Soccer 3D game"></canvas>
+
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">M</span><span>MINI SOCCER <small>PROTOTYPE 0.1</small></span></div>
-      <div class="status"><span class="live-dot"></span> TRAINING ARENA</div>
+      <div class="brand">
+        <span class="brand-mark">M</span>
+        <span>MINI SOCCER <small>PROTOTYPE 0.8</small></span>
+      </div>
+
+      <div class="status">
+        <span class="live-dot"></span> TRAINING ARENA
+      </div>
     </header>
+
     <section class="hud">
-      <div class="score"><span>HOME</span><strong id="score">0 — 0</strong><span>AWAY</span></div>
-      <div class="hint" id="hint">Gerakkan pemain untuk mendekati bola</div>
+      <div class="score">
+        <span>HOME</span>
+        <strong id="score">0 — 0</strong>
+        <span>AWAY</span>
+      </div>
+
+      <div class="hint" id="hint">
+        Joystick kiri: bergerak | Geser kanan: kamera
+      </div>
     </section>
+
     <div class="controls">
       <div class="move-zone">
-        <div id="joystick" class="joystick"><div id="stick" class="stick"></div></div>
+        <div id="joystick" class="joystick">
+          <div id="stick" class="stick"></div>
+        </div>
         <span class="control-caption">MOVE</span>
       </div>
+
       <div class="action-zone">
         <button id="sprint" class="action secondary">SPRINT</button>
-        <button id="kick" class="action primary">KICK</button>
+        <button id="pass" class="action">PASS</button>
+        <button id="through" class="action">THROUGH</button>
+        <button id="shoot" class="action primary">SHOOT</button>
       </div>
     </div>
+
     <button id="reset" class="reset">RESET BALL</button>
-    <div id="loading" class="loading">Memuat arena 3D…</div>
+
+    <div id="loading" class="loading">
+      Memuat arena 3D…
+    </div>
   </main>
+
   <script type="module" src="./js/main.js"></script>
 </body>
 </html>
